@@ -47,15 +47,6 @@ export class Ball {
      * @param {string} skinId
      */
     draw(ctx, skinId) {
-        // Gölge
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(this.x + 2, this.y + 3, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.fill();
-        ctx.restore();
-
-        // Top çizimi (skin'e göre)
         SkinManager.drawBall(ctx, this.x, this.y, this.radius, skinId, this.rotation);
     }
 
