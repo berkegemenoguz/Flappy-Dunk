@@ -1,0 +1,8 @@
+{
+  "name": "flappy-dunk",
+  "version": "1.0.0",
+  "description": "Flappy Dunk - A basketball-themed Flappy Bird style 2D browser game",
+  "scripts": {
+    "dev": "npx -y http-server . -p 3000 -o -c-1"
+  }
+}
