@@ -32,11 +32,9 @@ export const MAX_DIFFICULTY_MULTIPLIER  = 2.5;   // maksimum zorluk çarpanı
 export const MIN_SPAWN_INTERVAL         = 1000;  // ms — minimum spawn aralığı
 
 // ----- Altın (Coin) -----
-export const COIN_RADIUS       = 11;
-export const COIN_SPAWN_CHANCE = 0.70;  // %70 olasılıkla pota yanında altın
-export const COIN_OFFSET_Y     = 80;    // px — potadan dikey uzaklık (ABOVE/BELOW mod)
-export const COIN_MIN_Y = 40;
-export const COIN_MAX_Y = CANVAS_HEIGHT - 40;
+export const COIN_RADIUS = 11;
+export const COIN_MIN_Y  = 40;
+export const COIN_MAX_Y  = CANVAS_HEIGHT - 40;
 
 // ----- Skin Tanımları -----
 export const SKINS = [
@@ -63,9 +61,7 @@ export const COLORS = {
     NET: 'rgba(255,255,255,0.40)',
 
     // Altın
-    COIN:       '#ffd700',
-    COIN_DARK:  '#cc9900',
-    COIN_SHINE: '#fff8dc',
+    COIN: '#ffd700',
 
     // Metin
     TEXT:        '#ffffff',
@@ -76,8 +72,6 @@ export const COLORS = {
     BUTTON:       '#e63946',
     BUTTON_HOVER: '#ff6b6b',
     BUTTON_TEXT:  '#ffffff',
-    BUTTON_GREEN: '#4caf50',
-    BUTTON_GREEN_HOVER: '#66bb6a',
 };
 
 // ----- Oyun Durumları (State Enum) -----

@@ -10,7 +10,7 @@ import {
     HOOP_MIN_Y, HOOP_MAX_Y,
     DIFFICULTY_SCALE_FACTOR, MAX_DIFFICULTY_MULTIPLIER, MIN_SPAWN_INTERVAL,
     COIN_MIN_Y, COIN_MAX_Y,
-    HOOP_OPENING, RIM_WIDTH, SKINS,
+    RIM_WIDTH, SKINS,
 } from './constants.js';
 
 import { Ball } from './ball.js';

@@ -16,7 +16,6 @@ export class Hoop {
         this.speed = speed;
 
         this.scored = false;
-        this.passChecked = false;
     }
 
     update(dt) {
@@ -26,6 +25,8 @@ export class Hoop {
     // ── Çizim ──────────────────────────────────────────────────
 
     draw(ctx) {
+        ctx.save();
+
         const hw = RIM_WIDTH / 2;
         const ho = HOOP_OPENING / 2;
         const rimY = this.y + ho;
@@ -52,6 +53,8 @@ export class Hoop {
 
         // ── Ağ (net) ─────────────────────────────────────────
         this._drawNet(ctx, this.x - hw, rimY + RIM_THICKNESS, RIM_WIDTH);
+
+        ctx.restore();
     }
 
     /** Bumper dikdörtgeni çiz (koyu kırmızı, hafif parlama) */

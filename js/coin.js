@@ -42,6 +42,7 @@ export class Coin {
         ctx.font = `${fontSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#000000';
         ctx.fillText('🪙', 0, 0);
 
         ctx.restore();

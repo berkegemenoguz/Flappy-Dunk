@@ -4,7 +4,7 @@
 // yardımcı fonksiyonlar.
 // ========================================
 
-import { CANVAS_WIDTH, CANVAS_HEIGHT, COLORS, SKINS, HOOP_OPENING, RIM_WIDTH } from './constants.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, COLORS, SKINS } from './constants.js';
 import { SkinManager } from './skinManager.js';
 
 export class Renderer {

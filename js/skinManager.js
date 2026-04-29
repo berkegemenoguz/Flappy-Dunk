@@ -4,7 +4,6 @@
 // Her skin bir emoji ile çizilir.
 // ========================================
 
-import { SKINS } from './constants.js';
 import { StorageManager } from './storageManager.js';
 
 const SKIN_EMOJIS = {
@@ -18,13 +17,16 @@ const SKIN_EMOJIS = {
 
 export class SkinManager {
 
-    static getAllSkins()  { return SKINS; }
-    static getSkin(id)    { return SKINS.find(s => s.id === id) || SKINS[0]; }
     static getActiveSkinId() { return StorageManager.getActiveSkin(); }
 
     /**
      * Aktif skin'e göre topu çiz.
      * @param {CanvasRenderingContext2D} ctx
+     * @param {number} x
+     * @param {number} y
+     * @param {number} radius
+     * @param {string} skinId
+     * @param {number} rotation
      */
     static drawBall(ctx, x, y, radius, skinId, rotation) {
         ctx.save();
@@ -36,6 +38,7 @@ export class SkinManager {
         ctx.font = `${fontSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#000000';
         ctx.fillText(emoji, 0, 0);
 
         ctx.restore();
