@@ -21,15 +21,15 @@ export class Renderer {
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
         if (stars) {
+            ctx.save();
+            ctx.globalAlpha = 0.35;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             for (const s of stars) {
-                const fontSize = Math.max(s.r * 3, 4);
-                ctx.font = `${fontSize}px Arial`;
-                ctx.globalAlpha = 0.35;
+                ctx.font = `${Math.max(s.r * 3, 4)}px Arial`;
                 ctx.fillText('⭐', s.x, s.y);
             }
-            ctx.globalAlpha = 1;
+            ctx.restore();
         }
     }
 
