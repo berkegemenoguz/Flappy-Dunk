@@ -38,7 +38,6 @@ export class Game {
         // ── Zamanlama ────────────────────────────────────────
         this.lastTimestamp = 0;
         this.spawnTimer = 0;
-        this.animationId = null;
 
         // ── Parçacık sistemi (hafif) ─────────────────────────
         this.particles = [];
@@ -71,7 +70,7 @@ export class Game {
     init() {
         this.state = STATES.MENU;
         this.lastTimestamp = performance.now();
-        this.animationId = requestAnimationFrame(this._gameLoop);
+        requestAnimationFrame(this._gameLoop);
     }
 
     // ================================================================
@@ -86,7 +85,7 @@ export class Game {
         this._update(dt);
         this._render();
 
-        this.animationId = requestAnimationFrame(this._gameLoop);
+        requestAnimationFrame(this._gameLoop);
     }
 
     // ── Güncelleme ───────────────────────────────────────────
@@ -172,26 +171,25 @@ export class Game {
                 break;
 
             case STATES.PLAYING:
-                // Potalar → altınlar → parçacıklar → top → UI
-                for (const h of this.hoops) h.draw(ctx);
-                for (const c of this.coins) c.draw(ctx);
-                Renderer.drawParticles(ctx, this.particles);
-                this.ball.draw(ctx, SkinManager.getActiveSkinId());
+                this._drawGameScene(ctx);
                 Renderer.drawScore(ctx, this.score);
                 Renderer.drawSessionGold(ctx, this.sessionGold);
                 Renderer.drawHighScore(ctx, StorageManager.getHighScore());
                 break;
 
             case STATES.GAME_OVER:
-                // Donmuş oyun sahnesini çiz
-                for (const h of this.hoops) h.draw(ctx);
-                for (const c of this.coins) c.draw(ctx);
-                Renderer.drawParticles(ctx, this.particles);
-                this.ball.draw(ctx, SkinManager.getActiveSkinId());
-                // Overlay
+                this._drawGameScene(ctx);
                 Renderer.drawGameOver(ctx, this.score, this.sessionGold, StorageManager.getHighScore(), this.isNewRecord, this.gameOverButtons);
                 break;
         }
+    }
+
+    /** Oyun sahnesini çiz (potalar, altınlar, parçacıklar, top) */
+    _drawGameScene(ctx) {
+        for (const h of this.hoops) h.draw(ctx);
+        for (const c of this.coins) c.draw(ctx);
+        Renderer.drawParticles(ctx, this.particles);
+        this.ball.draw(ctx, SkinManager.getActiveSkinId());
     }
 
     // ================================================================
@@ -234,8 +232,7 @@ export class Game {
 
                     this._spawnParticles(
                         bumper.x + bumper.width / 2,
-                        bumper.y + bumper.height / 2,
-                        6, ['#ff6b6b', '#e63946', '#ffffff']
+                        bumper.y + bumper.height / 2
                     );
                     break;
                 }
@@ -256,35 +253,19 @@ export class Game {
                     this.ball.x - this.ball.radius < zone.right;
 
                 if (inX) {
-                    // minYWhileInX: en küçük Y = topun X aralığındaki en yüksek noktası
-                    if (hoop.minYWhileInX === undefined) {
-                        hoop.minYWhileInX = this.ball.y;
-                    } else {
-                        hoop.minYWhileInX = Math.min(hoop.minYWhileInX, this.ball.y);
-                    }
-
-                    // Bumper çarpışması → geçerli giriş olarak zorla işaretle
-                    if (bumpedThisFrame) {
-                        hoop.minYWhileInX = zone.top - 1;
-                    }
-
-                    // Skor: rim üstündeydi (minY < zone.bottom) VE şimdi rim altında
-                    if (hoop.minYWhileInX < zone.bottom && this.ball.y > zone.bottom) {
-                        hoop.scored = true;
-                        this.score++;
-                        this._spawnParticles(hoop.x, hoop.y, 12, ['#4caf50', '#81c784', '#ffffff']);
-                    }
-
-                } else if (hoop.minYWhileInX !== undefined) {
-                    // Sağ kenar frame-boundary: inX bu frame false'a düştü,
-                    // ama top tam bu anda zone.bottom'ı geçmiş olabilir.
-                    if (hoop.minYWhileInX < zone.bottom && this.ball.y > zone.bottom) {
-                        hoop.scored = true;
-                        this.score++;
-                        this._spawnParticles(hoop.x, hoop.y, 12, ['#4caf50', '#81c784', '#ffffff']);
-                    }
-                    hoop.minYWhileInX = undefined;
+                    hoop.minYWhileInX = hoop.minYWhileInX === undefined
+                        ? this.ball.y
+                        : Math.min(hoop.minYWhileInX, this.ball.y);
+                    if (bumpedThisFrame) hoop.minYWhileInX = zone.top - 1;
                 }
+
+                // Skor kontrolü (inX veya inX'ten çıkış anı)
+                if (hoop.minYWhileInX !== undefined &&
+                    hoop.minYWhileInX < zone.bottom && this.ball.y > zone.bottom) {
+                    this._scoreHoop(hoop);
+                }
+
+                if (!inX) hoop.minYWhileInX = undefined;
             }
         }
         return false;
@@ -299,7 +280,7 @@ export class Game {
                 coin.collected = true;
                 this.sessionGold++;
                 // Altın parçacık efekti
-                this._spawnParticles(coin.x, coin.y, 8, ['#ffd700', '#fff8dc', '#ffeb3b']);
+                this._spawnParticles(coin.x, coin.y);
             }
         }
     }
@@ -313,6 +294,13 @@ export class Game {
             }
         }
         return false;
+    }
+
+    /** Pota geçişi skoru */
+    _scoreHoop(hoop) {
+        hoop.scored = true;
+        this.score++;
+        this._spawnParticles(hoop.x, hoop.y);
     }
 
     // ── Çarpışma Yardımcıları ────────────────────────────────
@@ -345,38 +333,18 @@ export class Game {
         const hoop = new Hoop(CANVAS_WIDTH + RIM_WIDTH, y, speed);
         this.hoops.push(hoop);
 
-        // Her potanın girişinde KESİNLİKLE 1 altın spawn et
-        this._spawnEntranceCoin(hoop);
+        // Pota girişine 1 altın
+        const entranceY = Math.max(COIN_MIN_Y, Math.min(COIN_MAX_Y, hoop.y));
+        this.coins.push(new Coin(hoop.x - RIM_WIDTH / 2 - 30, entranceY, speed));
 
-        // %40 olasılıkla ekstra rastgele altın spawn et
+        // %40 olasılıkla ekstra rastgele altın
         if (Math.random() < 0.40) {
-            this._spawnRandomCoin(hoop.speed);
+            this.coins.push(new Coin(
+                CANVAS_WIDTH + 20 + Math.random() * 120,
+                COIN_MIN_Y + Math.random() * (COIN_MAX_Y - COIN_MIN_Y),
+                speed
+            ));
         }
-    }
-
-    /**
-     * Potanın girişine (sol tarafına) altın yerleştir.
-     * Topun geçeceği açıklığın tam önüne konumlanır.
-     */
-    _spawnEntranceCoin(hoop) {
-        // Açıklığın dikey merkezi = hoop.y (HOOP_OPENING'in merkezi)
-        // X: potanın sol kenarından biraz önce (topu çeksin)
-        const entranceX = hoop.x - RIM_WIDTH / 2 - 30;
-        const entranceY = hoop.y; // açıklık merkezi
-
-        const coinY = Math.max(COIN_MIN_Y, Math.min(COIN_MAX_Y, entranceY));
-        const coin = new Coin(entranceX, coinY, hoop.speed);
-        this.coins.push(coin);
-    }
-
-    /**
-     * Ekstra rastgele altın — potayla ilgisiz, serbest konumda.
-     */
-    _spawnRandomCoin(speed) {
-        const coinX = CANVAS_WIDTH + 20 + Math.random() * 120; // biraz dağıtılmış X
-        const coinY = COIN_MIN_Y + Math.random() * (COIN_MAX_Y - COIN_MIN_Y);
-        const coin = new Coin(coinX, coinY, speed);
-        this.coins.push(coin);
     }
 
     // ================================================================
@@ -405,8 +373,8 @@ export class Game {
     //  PARÇACIK SİSTEMİ (Hafif)
     // ================================================================
 
-    _spawnParticles(x, y, count, colors) {
-        for (let i = 0; i < count; i++) {
+    _spawnParticles(x, y) {
+        for (let i = 0; i < 10; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 60 + Math.random() * 120;
             this.particles.push({
@@ -415,7 +383,6 @@ export class Game {
                 vy: Math.sin(angle) * speed,
                 size: 1.5 + Math.random() * 2.5,
                 alpha: 1,
-                color: colors[Math.floor(Math.random() * colors.length)],
                 life: 0.4 + Math.random() * 0.4,
                 age: 0,
             });
@@ -452,11 +419,6 @@ export class Game {
         this.isNewRecord = StorageManager.saveHighScore(this.score);
     }
 
-    _restart() {
-        this._resetGame();
-        this.state = STATES.READY;
-    }
-
     _showMainMenu() {
         this._resetGame();
         this.state = STATES.MENU;
@@ -482,55 +444,26 @@ export class Game {
     //  BUTON SİSTEMİ
     // ================================================================
 
+    /** Buton nesnesi oluştur */
+    _btn(x, y, w, h, text, color, hoverColor, action, extra) {
+        return { x, y, width: w, height: h, text, color, hoverColor, action, hovered: false, disabled: false, ...extra };
+    }
+
     _setupButtons() {
-        const btnW = 210;
-        const btnH = 48;
-        const cx = (CANVAS_WIDTH - btnW) / 2;
+        const bw = 210, bh = 48;
+        const cx = (CANVAS_WIDTH - bw) / 2;
 
-        // ── Ana Menü butonları ────────────────────────────────
         this.menuButtons = [
-            {
-                x: cx, y: CANVAS_HEIGHT * 0.48, width: btnW, height: btnH,
-                text: '▶  PLAY', color: COLORS.BUTTON,
-                hoverColor: COLORS.BUTTON_HOVER,
-                action: () => this._startGame(),
-                hovered: false, disabled: false,
-            },
-            {
-                x: cx, y: CANVAS_HEIGHT * 0.48 + btnH + 14, width: btnW, height: btnH,
-                text: '🛒  SHOP', color: '#5c6bc0',
-                hoverColor: '#7986cb',
-                action: () => this._showShop(),
-                hovered: false, disabled: false,
-            },
+            this._btn(cx, CANVAS_HEIGHT * 0.48,        bw, bh, '▶  PLAY',      COLORS.BUTTON, COLORS.BUTTON_HOVER, () => this._startGame()),
+            this._btn(cx, CANVAS_HEIGHT * 0.48 + bh + 14, bw, bh, '🛒  SHOP', '#5c6bc0',     '#7986cb',           () => this._showShop()),
         ];
 
-        // ── Game Over butonları ──────────────────────────────
         this.gameOverButtons = [
-            {
-                x: cx, y: CANVAS_HEIGHT * 0.54, width: btnW, height: btnH,
-                text: '🔄  Restart', color: COLORS.BUTTON,
-                hoverColor: COLORS.BUTTON_HOVER,
-                action: () => this._restart(),
-                hovered: false, disabled: false,
-            },
-            {
-                x: cx, y: CANVAS_HEIGHT * 0.54 + btnH + 14, width: btnW, height: btnH,
-                text: '🏠  Main Menu', color: '#5c6bc0',
-                hoverColor: '#7986cb',
-                action: () => this._showMainMenu(),
-                hovered: false, disabled: false,
-            },
+            this._btn(cx, CANVAS_HEIGHT * 0.54,        bw, bh, '🔄  Restart',    COLORS.BUTTON, COLORS.BUTTON_HOVER, () => this._startGame()),
+            this._btn(cx, CANVAS_HEIGHT * 0.54 + bh + 14, bw, bh, '🏠  Main Menu', '#5c6bc0',  '#7986cb',           () => this._showMainMenu()),
         ];
 
-        // ── Mağaza geri butonu ───────────────────────────────
-        this.shopBackButton = {
-            x: 12, y: 18, width: 80, height: 36,
-            text: '← BACK', color: '#455a64',
-            hoverColor: '#607d8b',
-            action: () => this._showMainMenu(),
-            hovered: false, disabled: false,
-        };
+        this.shopBackButton = this._btn(12, 18, 80, 36, '← BACK', '#455a64', '#607d8b', () => this._showMainMenu());
 
         // ── Skin tıklama alanları (renderer tarafından güncellenir) ──
         this.skinItems = SKINS.map(() => ({
@@ -538,20 +471,10 @@ export class Game {
         }));
 
         // ── Mağaza sekme butonları ──────────────────────────
-        const tabW = (CANVAS_WIDTH - 60 - 6) / 2;  // İki eşit sekme, 6px gap
+        const tabW = (CANVAS_WIDTH - 66) / 2;
         this.shopTabButtons = [
-            {
-                x: 30, y: 85, width: tabW, height: 34,
-                text: '🏀 Balls', tabId: 'balls',
-                action: () => { this.shopTab = 'balls'; },
-                hovered: false, disabled: false,
-            },
-            {
-                x: 30 + tabW + 6, y: 85, width: tabW, height: 34,
-                text: '🖼️ Backgrounds', tabId: 'backgrounds',
-                action: () => { this.shopTab = 'backgrounds'; },
-                hovered: false, disabled: false,
-            },
+            this._btn(30,            85, tabW, 34, '🏀 Balls',        null, null, () => { this.shopTab = 'balls'; },       { tabId: 'balls' }),
+            this._btn(30 + tabW + 6, 85, tabW, 34, '🖼️ Backgrounds', null, null, () => { this.shopTab = 'backgrounds'; }, { tabId: 'backgrounds' }),
         ];
 
         // ── Arkaplan skin tıklama alanları ───────────────────
@@ -565,29 +488,17 @@ export class Game {
     // ================================================================
 
     _setupInput() {
-        // ── Tıklama ──────────────────────────────────────────
         this.canvas.addEventListener('click', (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            const [x, y] = this._getEventCoords(e);
             this._handleClick(x, y);
         });
 
-        // ── Dokunma (mobil) ──────────────────────────────────
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const rect = this.canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
+            const [x, y] = this._getEventCoords(e.touches[0]);
             this._handleClick(x, y);
         }, { passive: false });
 
-        // ── Klavye ───────────────────────────────────────────
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.key === ' ') {
                 e.preventDefault();
@@ -595,15 +506,19 @@ export class Game {
             }
         });
 
-        // ── Mouse hover (butonlar) ───────────────────────────
         this.canvas.addEventListener('mousemove', (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const scaleX = this.canvas.width / rect.width;
-            const scaleY = this.canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            const [x, y] = this._getEventCoords(e);
             this._handleHover(x, y);
         });
+    }
+
+    /** Ekran koordinatlarını canvas koordinatlarına çevir */
+    _getEventCoords(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        return [
+            (e.clientX - rect.left) * (this.canvas.width / rect.width),
+            (e.clientY - rect.top) * (this.canvas.height / rect.height),
+        ];
     }
 
     /** Tıklama yönlendirici */
@@ -681,7 +596,7 @@ export class Game {
                 this.ball.jump();
                 break;
             case STATES.GAME_OVER:
-                this._restart();
+                this._startGame();
                 break;
         }
     }
@@ -699,10 +614,7 @@ export class Game {
             if (StorageManager.spendGold(skin.price)) {
                 purchaseFn(skin.id);
                 setActiveFn(skin.id);
-                this._spawnParticles(
-                    area.x + area.width / 2, area.y + area.height / 2,
-                    15, ['#ffd700', '#ffeb3b', '#ffffff']
-                );
+                this._spawnParticles(area.x + area.width / 2, area.y + area.height / 2);
             }
             return;
         }
@@ -772,7 +684,7 @@ export class Game {
         // Sabit seed yaklaşımı — her seferinde aynı yıldızlar
         let seed = 42;
         const rng = () => {
-            seed = (seed * 16807 + 0) % 2147483647;
+            seed = (seed * 16807) % 2147483647;
             return seed / 2147483647;
         };
         for (let i = 0; i < count; i++) {

@@ -13,6 +13,7 @@ export class Renderer {
 
     /** Arka plan: görsel varsa image, yoksa gradyan + yıldız emojileri */
     static drawBackground(ctx, stars, bgSkin, bgImages) {
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         // Görsel tabanlı arkaplan
         if (bgSkin && bgSkin.image && bgImages && bgImages[bgSkin.id]) {
             const img = bgImages[bgSkin.id];
@@ -61,47 +62,27 @@ export class Renderer {
 
     /** Oturum altın sayıcı (sol üst) */
     static drawSessionGold(ctx, gold) {
-        if (gold <= 0) return;
-        ctx.save();
-        ctx.font = 'bold 16px Inter, Arial, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-
-        const text = `🪹 ${gold}`;
-        const m = ctx.measureText(text);
-        const px = CANVAS_WIDTH - 18;
-        const py = 32;
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        this._roundRect(ctx, px - m.width - 10, py - 4, m.width + 20, 26, 8);
-        ctx.fill();
-
-        ctx.fillStyle = COLORS.COIN;
-        ctx.fillText(text, px, py);
-        ctx.restore();
+        if (gold > 0) this._drawBadge(ctx, `🪹 ${gold}`, 32, 16, COLORS.COIN);
     }
 
     /** En yüksek skor gösterimi (sağ üst köşe) */
     static drawHighScore(ctx, highScore) {
-        if (highScore <= 0) return;
+        if (highScore > 0) this._drawBadge(ctx, `🏆 BEST: ${highScore}`, 62, 14, '#ffd700');
+    }
+
+    /** Sağ üst köşe badge (ortak) */
+    static _drawBadge(ctx, text, topY, fontSize, color) {
         ctx.save();
-        ctx.font = 'bold 14px Inter, Arial, sans-serif';
+        ctx.font = `bold ${fontSize}px Inter, Arial, sans-serif`;
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
-
-        const text = `🏆 BEST: ${highScore}`;
         const m = ctx.measureText(text);
-        const px = CANVAS_WIDTH - 18;
-        const py = 62;
-        const padX = 10, padY = 4;
-        const bw = m.width + padX * 2;
-        const bh = 22;
-
-        ctx.fillStyle = 'rgba(0,0,0,0.30)';
-        this._roundRect(ctx, px - m.width - padX, py - padY, bw, bh, 7);
+        const px = CANVAS_WIDTH - 18, pad = 10;
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        this._roundRect(ctx, px - m.width - pad, topY - 4, m.width + pad * 2, fontSize + 10, 8);
         ctx.fill();
-
-        ctx.fillStyle = '#ffd700';
-        ctx.fillText(text, px, py);
+        ctx.fillStyle = color;
+        ctx.fillText(text, px, topY);
         ctx.restore();
     }
 
@@ -134,6 +115,10 @@ export class Renderer {
     // ── Mağaza Ekranı ────────────────────────────────────────
 
     static drawShop(ctx, totalGold, shopTab, tabButtons, ballData, bgData, backButton) {
+        // Arkaplan üzerine karartma overlay
+        ctx.fillStyle = COLORS.OVERLAY;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
         ctx.save();
         ctx.font = 'bold 30px Inter, Arial, sans-serif';
         ctx.fillStyle = COLORS.TEXT;
@@ -233,61 +218,54 @@ export class Renderer {
 
     /** Arkaplan önizleme thumbnail */
     static _drawBgPreview(ctx, skin, x, y, w, h, images) {
-        if (skin.image && images && images[skin.id]) {
-            const img = images[skin.id];
-            if (img.complete && img.naturalWidth > 0) {
-                ctx.save();
-                this._roundRect(ctx, x, y, w, h, 6);
-                ctx.clip();
-                ctx.drawImage(img, x, y, w, h);
-                ctx.restore();
-            } else {
-                this._drawDefaultBgPreview(ctx, x, y, w, h);
-            }
+        const img = skin.image && images && images[skin.id];
+        const loaded = img && img.complete && img.naturalWidth > 0;
+
+        ctx.save();
+        this._roundRect(ctx, x, y, w, h, 6);
+        ctx.clip();
+        if (loaded) {
+            ctx.drawImage(img, x, y, w, h);
         } else {
             this._drawDefaultBgPreview(ctx, x, y, w, h);
         }
+        ctx.restore();
+
         ctx.strokeStyle = 'rgba(255,255,255,0.2)';
         ctx.lineWidth = 1;
         this._roundRect(ctx, x, y, w, h, 6);
         ctx.stroke();
     }
 
-    /** Varsayılan gradyan önizleme (küçük) */
+    /** Varsayılan gradyan önizleme (küçük, clip zaten uygulanmış) */
     static _drawDefaultBgPreview(ctx, x, y, w, h) {
-        ctx.save();
-        this._roundRect(ctx, x, y, w, h, 6);
-        ctx.clip();
         const grad = ctx.createLinearGradient(x, y, x, y + h);
         grad.addColorStop(0, COLORS.BG_TOP);
         grad.addColorStop(0.5, COLORS.BG_MID);
         grad.addColorStop(1, COLORS.BG_BOTTOM);
         ctx.fillStyle = grad;
         ctx.fillRect(x, y, w, h);
-        // Küçük yıldız
         ctx.font = '8px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.globalAlpha = 0.5;
         ctx.fillText('⭐', x + w / 2, y + h / 2);
-        ctx.restore();
     }
 
     /** Mağaza öğesi durumu (ACTIVE / SELECT / fiyat) */
     static _drawItemStatus(ctx, startX, y, itemW, itemH, isActive, isPurchased, canAfford, price) {
         ctx.textAlign = 'right';
+        ctx.font = 'bold 13px Inter, Arial, sans-serif';
+        const rx = startX + itemW - 14, ry = y + itemH / 2;
         if (isActive) {
             ctx.fillStyle = '#4caf50';
-            ctx.font = 'bold 13px Inter, Arial, sans-serif';
-            ctx.fillText('✅ ACTIVE', startX + itemW - 14, y + itemH / 2);
+            ctx.fillText('✅ ACTIVE', rx, ry);
         } else if (isPurchased) {
             ctx.fillStyle = '#90caf9';
-            ctx.font = 'bold 13px Inter, Arial, sans-serif';
-            ctx.fillText('SELECT ▶', startX + itemW - 14, y + itemH / 2);
+            ctx.fillText('SELECT ▶', rx, ry);
         } else {
             ctx.fillStyle = canAfford ? COLORS.COIN : '#e63946';
-            ctx.font = 'bold 13px Inter, Arial, sans-serif';
-            ctx.fillText(`🪙 ${price}`, startX + itemW - 14, y + itemH / 2);
+            ctx.fillText(`🪙 ${price}`, rx, ry);
         }
     }
 
