@@ -8,11 +8,11 @@ import { StorageManager } from './storageManager.js';
 
 const SKIN_EMOJIS = {
     default:    '🏀',
-    tennis:     '🎾',
+    tennis:     '⚾',
     football:   '⚽',
     volleyball: '🏐',
-    bowling:    '🎳',
-    galaxy:     '🌌',
+    bowling:    '🏈',
+    galaxy:     '🏉',
 };
 
 export class SkinManager {

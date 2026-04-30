@@ -39,11 +39,11 @@ export const COIN_MAX_Y  = CANVAS_HEIGHT - 40;
 // ----- Skin Tanımları -----
 export const SKINS = [
     { id: 'default',    name: 'Basketball',     price: 0   },
-    { id: 'tennis',     name: 'Tennis Ball',    price: 50  },
+    { id: 'tennis',     name: 'Baseball',       price: 50  },
     { id: 'football',   name: 'Soccer Ball',    price: 100 },
     { id: 'volleyball', name: 'Volleyball',     price: 150 },
-    { id: 'bowling',    name: 'Bowling Ball',   price: 250 },
-    { id: 'galaxy',     name: 'Galaxy',         price: 500 },
+    { id: 'bowling',    name: 'American Football', price: 250 },
+    { id: 'galaxy',     name: 'Rugby Ball',     price: 500 },
 ];
 
 // ----- Renkler -----
