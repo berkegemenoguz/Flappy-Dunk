@@ -4,15 +4,25 @@
 // yardımcı fonksiyonlar.
 // ========================================
 
-import { CANVAS_WIDTH, CANVAS_HEIGHT, COLORS, SKINS } from './constants.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, COLORS, SKINS, BG_SKINS } from './constants.js';
 import { SkinManager } from './skinManager.js';
 
 export class Renderer {
 
     // ── Arka Plan ─────────────────────────────────────────────
 
-    /** Gradyanlı arka plan + yıldız emojileri */
-    static drawBackground(ctx, stars) {
+    /** Arka plan: görsel varsa image, yoksa gradyan + yıldız emojileri */
+    static drawBackground(ctx, stars, bgSkin, bgImages) {
+        // Görsel tabanlı arkaplan
+        if (bgSkin && bgSkin.image && bgImages && bgImages[bgSkin.id]) {
+            const img = bgImages[bgSkin.id];
+            if (img.complete && img.naturalWidth > 0) {
+                ctx.drawImage(img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                return;
+            }
+        }
+
+        // Varsayılan gradyan arkaplan
         const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
         grad.addColorStop(0, COLORS.BG_TOP);
         grad.addColorStop(0.5, COLORS.BG_MID);
@@ -123,72 +133,161 @@ export class Renderer {
 
     // ── Mağaza Ekranı ────────────────────────────────────────
 
-    static drawShop(ctx, totalGold, purchasedSkins, activeSkin, backButton, skinItems) {
+    static drawShop(ctx, totalGold, shopTab, tabButtons, ballData, bgData, backButton) {
         ctx.save();
         ctx.font = 'bold 30px Inter, Arial, sans-serif';
         ctx.fillStyle = COLORS.TEXT;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🛒  SHOP', CANVAS_WIDTH / 2, 55);
+        ctx.fillText('🛒  SHOP', CANVAS_WIDTH / 2, 45);
         ctx.restore();
 
         this._drawGoldBadge(ctx, totalGold, CANVAS_WIDTH - 22, 22);
 
         this.drawButton(ctx, backButton);
 
-        const startY    = 100;
+        // ── Sekmeler ─────────────────────────────────────────
+        for (const tab of tabButtons) {
+            const isActiveTab = (tab.tabId === shopTab);
+            ctx.fillStyle = isActiveTab
+                ? 'rgba(230, 57, 70, 0.25)'
+                : 'rgba(255,255,255,0.06)';
+            this._roundRect(ctx, tab.x, tab.y, tab.width, tab.height, 8);
+            ctx.fill();
+
+            ctx.strokeStyle = isActiveTab ? COLORS.RIM : 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = isActiveTab ? 2 : 1;
+            this._roundRect(ctx, tab.x, tab.y, tab.width, tab.height, 8);
+            ctx.stroke();
+
+            ctx.save();
+            ctx.font = 'bold 14px Inter, Arial, sans-serif';
+            ctx.fillStyle = isActiveTab ? '#ffffff' : 'rgba(255,255,255,0.5)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tab.text, tab.x + tab.width / 2, tab.y + tab.height / 2);
+            ctx.restore();
+        }
+
+        // ── Öğe Listesi ─────────────────────────────────────
+        const startY    = 130;
         const itemH     = 56;
         const itemGap   = 6;
         const itemW     = CANVAS_WIDTH - 60;
         const startX    = 30;
 
-        for (let i = 0; i < SKINS.length; i++) {
-            const skin = SKINS[i];
+        const data     = shopTab === 'balls' ? ballData : bgData;
+        const skinList = shopTab === 'balls' ? SKINS    : BG_SKINS;
+        const drawPreview = shopTab === 'balls'
+            ? (ctx, skin, x, y, h) => {
+                SkinManager.drawBall(ctx, x + 30, y + h / 2, 14, skin.id, 0);
+                return 55; // text offset
+            }
+            : (ctx, skin, x, y, h, images) => {
+                const px = x + 8, py = y + 6, pw = 44, ph = h - 12;
+                this._drawBgPreview(ctx, skin, px, py, pw, ph, images);
+                return 62; // text offset
+            };
+
+        this._drawSkinList(ctx, startX, startY, itemW, itemH, itemGap, totalGold, skinList, data, drawPreview);
+    }
+
+    /** Generic skin listesi çizimi */
+    static _drawSkinList(ctx, startX, startY, itemW, itemH, itemGap, totalGold, skinList, data, drawPreview) {
+        const { purchased, active, items, images } = data;
+
+        for (let i = 0; i < skinList.length; i++) {
+            const skin = skinList[i];
             const y = startY + i * (itemH + itemGap);
-            const isPurchased = purchasedSkins.includes(skin.id);
-            const isActive    = activeSkin === skin.id;
+            const isActive    = active === skin.id;
+            const isPurchased = purchased.includes(skin.id);
             const canAfford   = totalGold >= skin.price;
 
-            ctx.fillStyle = isActive
-                ? 'rgba(230, 57, 70, 0.18)'
-                : 'rgba(255,255,255,0.06)';
+            // Satır arkaplanı
+            ctx.fillStyle = isActive ? 'rgba(230, 57, 70, 0.18)' : 'rgba(255,255,255,0.06)';
             this._roundRect(ctx, startX, y, itemW, itemH, 10);
             ctx.fill();
-
             ctx.strokeStyle = isActive ? COLORS.RIM : 'rgba(255,255,255,0.08)';
             ctx.lineWidth   = isActive ? 2 : 1;
             this._roundRect(ctx, startX, y, itemW, itemH, 10);
             ctx.stroke();
 
-            SkinManager.drawBall(ctx, startX + 30, y + itemH / 2, 14, skin.id, 0);
-
+            // Önizleme + isim
+            const textOffset = drawPreview(ctx, skin, startX, y, itemH, images);
             ctx.fillStyle = COLORS.TEXT;
             ctx.font = '15px Inter, Arial, sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(skin.name, startX + 55, y + itemH / 2);
+            ctx.fillText(skin.name, startX + textOffset, y + itemH / 2);
 
-            ctx.textAlign = 'right';
-            if (isActive) {
-                ctx.fillStyle = '#4caf50';
-                ctx.font = 'bold 13px Inter, Arial, sans-serif';
-                ctx.fillText('✅ ACTIVE', startX + itemW - 14, y + itemH / 2);
-            } else if (isPurchased) {
-                ctx.fillStyle = '#90caf9';
-                ctx.font = 'bold 13px Inter, Arial, sans-serif';
-                ctx.fillText('SELECT ▶', startX + itemW - 14, y + itemH / 2);
+            // Durum (ACTIVE / SELECT / fiyat)
+            this._drawItemStatus(ctx, startX, y, itemW, itemH, isActive, isPurchased, canAfford, skin.price);
+
+            // Tıklama alanı güncelle
+            if (items && items[i]) {
+                items[i].x = startX;  items[i].y = y;
+                items[i].width = itemW;  items[i].height = itemH;
+            }
+        }
+    }
+
+    /** Arkaplan önizleme thumbnail */
+    static _drawBgPreview(ctx, skin, x, y, w, h, images) {
+        if (skin.image && images && images[skin.id]) {
+            const img = images[skin.id];
+            if (img.complete && img.naturalWidth > 0) {
+                ctx.save();
+                this._roundRect(ctx, x, y, w, h, 6);
+                ctx.clip();
+                ctx.drawImage(img, x, y, w, h);
+                ctx.restore();
             } else {
-                ctx.fillStyle = canAfford ? COLORS.COIN : '#e63946';
-                ctx.font = 'bold 13px Inter, Arial, sans-serif';
-                ctx.fillText(`🪙 ${skin.price}`, startX + itemW - 14, y + itemH / 2);
+                this._drawDefaultBgPreview(ctx, x, y, w, h);
             }
+        } else {
+            this._drawDefaultBgPreview(ctx, x, y, w, h);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1;
+        this._roundRect(ctx, x, y, w, h, 6);
+        ctx.stroke();
+    }
 
-            if (skinItems && skinItems[i]) {
-                skinItems[i].x = startX;
-                skinItems[i].y = y;
-                skinItems[i].width = itemW;
-                skinItems[i].height = itemH;
-            }
+    /** Varsayılan gradyan önizleme (küçük) */
+    static _drawDefaultBgPreview(ctx, x, y, w, h) {
+        ctx.save();
+        this._roundRect(ctx, x, y, w, h, 6);
+        ctx.clip();
+        const grad = ctx.createLinearGradient(x, y, x, y + h);
+        grad.addColorStop(0, COLORS.BG_TOP);
+        grad.addColorStop(0.5, COLORS.BG_MID);
+        grad.addColorStop(1, COLORS.BG_BOTTOM);
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, w, h);
+        // Küçük yıldız
+        ctx.font = '8px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.5;
+        ctx.fillText('⭐', x + w / 2, y + h / 2);
+        ctx.restore();
+    }
+
+    /** Mağaza öğesi durumu (ACTIVE / SELECT / fiyat) */
+    static _drawItemStatus(ctx, startX, y, itemW, itemH, isActive, isPurchased, canAfford, price) {
+        ctx.textAlign = 'right';
+        if (isActive) {
+            ctx.fillStyle = '#4caf50';
+            ctx.font = 'bold 13px Inter, Arial, sans-serif';
+            ctx.fillText('✅ ACTIVE', startX + itemW - 14, y + itemH / 2);
+        } else if (isPurchased) {
+            ctx.fillStyle = '#90caf9';
+            ctx.font = 'bold 13px Inter, Arial, sans-serif';
+            ctx.fillText('SELECT ▶', startX + itemW - 14, y + itemH / 2);
+        } else {
+            ctx.fillStyle = canAfford ? COLORS.COIN : '#e63946';
+            ctx.font = 'bold 13px Inter, Arial, sans-serif';
+            ctx.fillText(`🪙 ${price}`, startX + itemW - 14, y + itemH / 2);
         }
     }
 

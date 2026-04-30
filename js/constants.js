@@ -46,6 +46,14 @@ export const SKINS = [
     { id: 'galaxy',     name: 'Rugby Ball',     price: 500 },
 ];
 
+// ----- Arkaplan Skin Tanımları -----
+export const BG_SKINS = [
+    { id: 'bg_default', name: 'Default',  image: null,                    price: 0   },
+    { id: 'bg_theme1',  name: 'Theme 1',  image: 'images/bg_theme1.png', price: 100 },
+    { id: 'bg_theme2',  name: 'Theme 2',  image: 'images/bg_theme2.png', price: 200 },
+    { id: 'bg_theme3',  name: 'Theme 3',  image: 'images/bg_theme3.png', price: 350 },
+];
+
 // ----- Renkler -----
 export const COLORS = {
     // Arka plan gradyanı

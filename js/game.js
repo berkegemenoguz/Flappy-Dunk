@@ -10,7 +10,7 @@ import {
     HOOP_MIN_Y, HOOP_MAX_Y,
     DIFFICULTY_SCALE_FACTOR, MAX_DIFFICULTY_MULTIPLIER, MIN_SPAWN_INTERVAL,
     COIN_MIN_Y, COIN_MAX_Y,
-    RIM_WIDTH, SKINS,
+    RIM_WIDTH, SKINS, BG_SKINS,
 } from './constants.js';
 
 import { Ball } from './ball.js';
@@ -51,9 +51,14 @@ export class Game {
         this.gameOverButtons = [];
         this.shopBackButton = null;
         this.skinItems = [];   // Mağaza skin tıklama alanları
+        this.shopTab = 'balls';       // Aktif mağaza sekmesi
+        this.shopTabButtons = [];     // Sekme butonları
+        this.bgSkinItems = [];        // Arkaplan skin tıklama alanları
+        this.bgImages = {};           // Önyüklenmiş arkaplan görselleri
 
         this._setupButtons();
         this._setupInput();
+        this._preloadBgImages();
 
         // bind
         this._gameLoop = this._gameLoop.bind(this);
@@ -130,7 +135,9 @@ export class Game {
         const ctx = this.ctx;
 
         // Arka plan (her state'de)
-        Renderer.drawBackground(ctx, this.bgStars);
+        const activeBgId = StorageManager.getActiveBgSkin();
+        const bgSkin = BG_SKINS.find(s => s.id === activeBgId) || BG_SKINS[0];
+        Renderer.drawBackground(ctx, this.bgStars, bgSkin, this.bgImages);
 
         switch (this.state) {
             case STATES.MENU:
@@ -141,10 +148,20 @@ export class Game {
                 Renderer.drawShop(
                     ctx,
                     StorageManager.getTotalGold(),
-                    StorageManager.getPurchasedSkins(),
-                    StorageManager.getActiveSkin(),
-                    this.shopBackButton,
-                    this.skinItems
+                    this.shopTab,
+                    this.shopTabButtons,
+                    {
+                        purchased: StorageManager.getPurchasedSkins(),
+                        active: StorageManager.getActiveSkin(),
+                        items: this.skinItems,
+                    },
+                    {
+                        purchased: StorageManager.getPurchasedBgSkins(),
+                        active: StorageManager.getActiveBgSkin(),
+                        items: this.bgSkinItems,
+                        images: this.bgImages,
+                    },
+                    this.shopBackButton
                 );
                 break;
 
@@ -447,6 +464,7 @@ export class Game {
 
     _showShop() {
         this.state = STATES.SHOP;
+        this.shopTab = 'balls';
     }
 
     _resetGame() {
@@ -518,6 +536,28 @@ export class Game {
         this.skinItems = SKINS.map(() => ({
             x: 0, y: 0, width: 0, height: 0,
         }));
+
+        // ── Mağaza sekme butonları ──────────────────────────
+        const tabW = (CANVAS_WIDTH - 60 - 6) / 2;  // İki eşit sekme, 6px gap
+        this.shopTabButtons = [
+            {
+                x: 30, y: 85, width: tabW, height: 34,
+                text: '🏀 Balls', tabId: 'balls',
+                action: () => { this.shopTab = 'balls'; },
+                hovered: false, disabled: false,
+            },
+            {
+                x: 30 + tabW + 6, y: 85, width: tabW, height: 34,
+                text: '🖼️ Backgrounds', tabId: 'backgrounds',
+                action: () => { this.shopTab = 'backgrounds'; },
+                hovered: false, disabled: false,
+            },
+        ];
+
+        // ── Arkaplan skin tıklama alanları ───────────────────
+        this.bgSkinItems = BG_SKINS.map(() => ({
+            x: 0, y: 0, width: 0, height: 0,
+        }));
     }
 
     // ================================================================
@@ -584,8 +624,27 @@ export class Game {
                     this.shopBackButton.action();
                     return;
                 }
-                // Skin tıklamaları
-                this._handleShopClick(x, y);
+                // Sekme butonları
+                for (const tab of this.shopTabButtons) {
+                    if (this._isInside(x, y, tab)) {
+                        tab.action();
+                        return;
+                    }
+                }
+                // Skin tıklamaları (aktif sekmeye göre)
+                if (this.shopTab === 'balls') {
+                    this._handleSkinPurchase(x, y, SKINS, this.skinItems,
+                        StorageManager.getPurchasedSkins(),
+                        StorageManager.getActiveSkin(),
+                        id => StorageManager.purchaseSkin(id),
+                        id => StorageManager.setActiveSkin(id));
+                } else {
+                    this._handleSkinPurchase(x, y, BG_SKINS, this.bgSkinItems,
+                        StorageManager.getPurchasedBgSkins(),
+                        StorageManager.getActiveBgSkin(),
+                        id => StorageManager.purchaseBgSkin(id),
+                        id => StorageManager.setActiveBgSkin(id));
+                }
                 break;
 
             case STATES.READY:
@@ -627,41 +686,25 @@ export class Game {
         }
     }
 
-    /** Mağaza skin tıklama işlemi */
-    _handleShopClick(x, y) {
-        const purchasedSkins = StorageManager.getPurchasedSkins();
-        const activeSkin = StorageManager.getActiveSkin();
-
-        for (let i = 0; i < SKINS.length; i++) {
-            const area = this.skinItems[i];
+    /** Generic mağaza skin tıklama işlemi (top + arkaplan ortak) */
+    _handleSkinPurchase(x, y, skinList, items, purchased, active, purchaseFn, setActiveFn) {
+        for (let i = 0; i < skinList.length; i++) {
+            const area = items[i];
             if (!area || area.width === 0) continue;
-            if (this._isInside(x, y, area)) {
-                const skin = SKINS[i];
-                const owned = purchasedSkins.includes(skin.id);
-                const active = activeSkin === skin.id;
+            if (!this._isInside(x, y, area)) continue;
 
-                if (active) {
-                    // Zaten seçili — hiçbir şey yapma
-                    return;
-                }
-                if (owned) {
-                    // Satın alınmış — seç
-                    StorageManager.setActiveSkin(skin.id);
-                    return;
-                }
-                // Satın alınmamış — satın almayı dene
-                if (StorageManager.spendGold(skin.price)) {
-                    StorageManager.purchaseSkin(skin.id);
-                    StorageManager.setActiveSkin(skin.id);
-                    // Satın alma parçacık efekti
-                    this._spawnParticles(
-                        area.x + area.width / 2,
-                        area.y + area.height / 2,
-                        15, ['#ffd700', '#ffeb3b', '#ffffff']
-                    );
-                }
-                return;
+            const skin = skinList[i];
+            if (active === skin.id) return;
+            if (purchased.includes(skin.id)) { setActiveFn(skin.id); return; }
+            if (StorageManager.spendGold(skin.price)) {
+                purchaseFn(skin.id);
+                setActiveFn(skin.id);
+                this._spawnParticles(
+                    area.x + area.width / 2, area.y + area.height / 2,
+                    15, ['#ffd700', '#ffeb3b', '#ffffff']
+                );
             }
+            return;
         }
     }
 
@@ -674,10 +717,16 @@ export class Game {
             if (btn.hovered) cursorPointer = true;
         }
 
-        // Mağazadayken skin satırları için de pointer
+        // Mağazadayken skin satırları ve sekmeler için de pointer
         if (this.state === STATES.SHOP) {
-            for (const area of this.skinItems) {
+            const activeItems = this.shopTab === 'balls' ? this.skinItems : this.bgSkinItems;
+            for (const area of activeItems) {
                 if (area.width > 0 && this._isInside(x, y, area)) {
+                    cursorPointer = true;
+                }
+            }
+            for (const tab of this.shopTabButtons) {
+                if (this._isInside(x, y, tab)) {
                     cursorPointer = true;
                 }
             }
@@ -691,7 +740,7 @@ export class Game {
         switch (this.state) {
             case STATES.MENU: return this.menuButtons;
             case STATES.GAME_OVER: return this.gameOverButtons;
-            case STATES.SHOP: return [this.shopBackButton];
+            case STATES.SHOP: return [this.shopBackButton, ...this.shopTabButtons];
             default: return [];
         }
     }
@@ -705,6 +754,17 @@ export class Game {
     // ================================================================
     //  YARDIMCILAR
     // ================================================================
+
+    /** Arkaplan görsellerini önyükle */
+    _preloadBgImages() {
+        for (const bg of BG_SKINS) {
+            if (bg.image) {
+                const img = new Image();
+                img.src = bg.image;
+                this.bgImages[bg.id] = img;
+            }
+        }
+    }
 
     /** Arka plan yıldızları oluştur (deterministik) */
     _generateStars(count) {

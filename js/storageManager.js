@@ -6,75 +6,76 @@
 const PREFIX = 'flappyDunk_';
 
 const KEYS = {
-    TOTAL_GOLD:      PREFIX + 'totalGold',
-    PURCHASED_SKINS: PREFIX + 'purchasedSkins',
-    ACTIVE_SKIN:     PREFIX + 'activeSkin',
-    HIGH_SCORE:      PREFIX + 'highScore',
+    TOTAL_GOLD:         PREFIX + 'totalGold',
+    PURCHASED_SKINS:    PREFIX + 'purchasedSkins',
+    ACTIVE_SKIN:        PREFIX + 'activeSkin',
+    HIGH_SCORE:         PREFIX + 'highScore',
+    PURCHASED_BG_SKINS: PREFIX + 'purchasedBgSkins',
+    ACTIVE_BG_SKIN:     PREFIX + 'activeBgSkin',
 };
 
 export class StorageManager {
 
-    /** Toplam altın miktarını oku */
+    // ── Altın ────────────────────────────────────────────────
+
     static getTotalGold() {
         return parseInt(localStorage.getItem(KEYS.TOTAL_GOLD) || '0', 10);
     }
 
-    /** Altın ekle (oyun sonu) */
     static addGold(amount) {
-        const current = this.getTotalGold();
-        localStorage.setItem(KEYS.TOTAL_GOLD, String(current + amount));
+        localStorage.setItem(KEYS.TOTAL_GOLD, String(this.getTotalGold() + amount));
     }
 
-    /** Altın harca (skin satın alma). Başarılı ise true döner. */
+    /** Altın harca. Başarılı ise true döner. */
     static spendGold(amount) {
         const current = this.getTotalGold();
-        if (current >= amount) {
-            localStorage.setItem(KEYS.TOTAL_GOLD, String(current - amount));
-            return true;
-        }
-        return false;
+        if (current < amount) return false;
+        localStorage.setItem(KEYS.TOTAL_GOLD, String(current - amount));
+        return true;
     }
 
-    /** Satın alınan skin ID listesini oku */
-    static getPurchasedSkins() {
-        const data = localStorage.getItem(KEYS.PURCHASED_SKINS);
-        return data ? JSON.parse(data) : ['default'];
+    // ── Skin Yardımcıları (Generic) ──────────────────────────
+
+    static _getList(key, defaultId) {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : [defaultId];
     }
 
-    /** Skin'i satın alınmış olarak kaydet */
-    static purchaseSkin(skinId) {
-        const skins = this.getPurchasedSkins();
-        if (!skins.includes(skinId)) {
-            skins.push(skinId);
-            localStorage.setItem(KEYS.PURCHASED_SKINS, JSON.stringify(skins));
+    static _addToList(key, id, defaultId) {
+        const list = this._getList(key, defaultId);
+        if (!list.includes(id)) {
+            list.push(id);
+            localStorage.setItem(key, JSON.stringify(list));
         }
     }
 
-    /** Aktif skin ID'sini oku */
-    static getActiveSkin() {
-        return localStorage.getItem(KEYS.ACTIVE_SKIN) || 'default';
-    }
+    // ── Top Skinleri ─────────────────────────────────────────
 
-    /** Aktif skin'i değiştir */
-    static setActiveSkin(skinId) {
-        localStorage.setItem(KEYS.ACTIVE_SKIN, skinId);
-    }
+    static getPurchasedSkins() { return this._getList(KEYS.PURCHASED_SKINS, 'default'); }
+    static purchaseSkin(id)    { this._addToList(KEYS.PURCHASED_SKINS, id, 'default'); }
+    static getActiveSkin()     { return localStorage.getItem(KEYS.ACTIVE_SKIN) || 'default'; }
+    static setActiveSkin(id)   { localStorage.setItem(KEYS.ACTIVE_SKIN, id); }
 
-    /** En yüksek skoru oku */
+    // ── Arkaplan Skinleri ────────────────────────────────────
+
+    static getPurchasedBgSkins() { return this._getList(KEYS.PURCHASED_BG_SKINS, 'bg_default'); }
+    static purchaseBgSkin(id)    { this._addToList(KEYS.PURCHASED_BG_SKINS, id, 'bg_default'); }
+    static getActiveBgSkin()     { return localStorage.getItem(KEYS.ACTIVE_BG_SKIN) || 'bg_default'; }
+    static setActiveBgSkin(id)   { localStorage.setItem(KEYS.ACTIVE_BG_SKIN, id); }
+
+    // ── Yüksek Skor ──────────────────────────────────────────
+
     static getHighScore() {
         return parseInt(localStorage.getItem(KEYS.HIGH_SCORE) || '0', 10);
     }
 
-    /** En yüksek skoru güncelle (yeni skor daha yüksekse kaydeder) */
+    /** Yeni rekorsa kaydeder, true döner */
     static saveHighScore(score) {
-        if (score > this.getHighScore()) {
-            localStorage.setItem(KEYS.HIGH_SCORE, String(score));
-            return true; // Yeni rekor!
-        }
-        return false;
+        if (score <= this.getHighScore()) return false;
+        localStorage.setItem(KEYS.HIGH_SCORE, String(score));
+        return true;
     }
 
-    /** Tüm verileri sıfırla (debug/test için) */
     static resetAll() {
         Object.values(KEYS).forEach(key => localStorage.removeItem(key));
     }
