@@ -4,6 +4,7 @@ Tarayıcı tabanlı bir basketbol arcade oyunu. Topu zıplatarak potalardan geç
 
 ## Oynanış
 
+
 - **Tıklama / Boşluk tuşu** ile topu zıplatabilirsiniz
 - Potaların açıklığından geçirerek puan kazanın
 - Potayı kaçırmak veya tavana/zemine çarpmak = oyun sonu
